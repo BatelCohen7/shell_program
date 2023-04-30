@@ -38,16 +38,10 @@ int compareFiles(char *file1, char *file2, int verbose, int ignoreCase){
 		if (ch1 != ch2)
 		{
 			result = 1;
-			if(verbose){printf("thw files are distinct");}
 			return result;
 		}
 	}
-	if(verbose)
-	{
-		printf("thw files are equal");
-	}
-
-
+	
 cleanup:
 	if (f1 != NULL)
 	{
@@ -69,9 +63,9 @@ int main(int argc, char *argv[]) {
     }
 
 	for (int i = 3; i < argc; i++) {
-        if (strcmp(argv[i], "-v") == 0) {
+        if (strcmp(argv[i], "[-v]") == 0) {
             verbose = 1;
-        } else if (strcmp(argv[i], "-i") == 0) {
+        } else if (strcmp(argv[i], "[-i]") == 0) {
             ignoreCase = 1;
         }
     }

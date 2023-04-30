@@ -1,14 +1,16 @@
+#include <signal.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <fcntl.h>
 #include "stdio.h"
 #include "errno.h"
 #include "stdlib.h"
-#include "unistd.h"
 #include <string.h>
 #include <ctype.h>
-#include <signal.h>
 #include <dirent.h>
+#include <unistd.h>
+
+
 
 #define TRUE 1
 #define MAX_CMD_SIZE 1024
@@ -29,7 +31,7 @@ void handle_sigint(int sig) {
     		// }
 			char flag;
 			while(TRUE){
-				printf("press 1 to continue!\n");
+				printf("\npress 1 to continue!\n");
 				scanf("%c", &flag);
 				if (flag == '1'){
 					exit(EXIT_SUCCESS);
@@ -147,9 +149,9 @@ int main(){
         		char *tok1; // process
             	char *tok2; // file
 				if (strchr(cmd, '<') != NULL){
-                	tok2 = strtok(cmd, "<");
-                	tok1 = tok2;
-                	tok2 = strtok(NULL, "<");
+                	tok1 = strtok(cmd, "<");
+                	tok2 = tok1;
+                	tok1 = strtok(NULL, "<");
             	}else if(strstr(cmd, redirect_str2) != NULL){
 					tok2 = strtok(cmd, redirect_str2);
                 	tok1 = tok2;

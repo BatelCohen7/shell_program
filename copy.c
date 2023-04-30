@@ -13,14 +13,26 @@ int copy(int verbos, int force, char *src_file_path, char *dest_file_path){
 		result = 1;
 		goto cleanup;
 	}
-	dest_file = fopen(dest_file_path, force?"wb":"rb");
+	if(force == 1) 
+	{
+    	dest_file = fopen(dest_file_path, "wb");
+	} 
+	else 
+	{
+    	dest_file = fopen(dest_file_path, "ab+");
+		if (dest_file) {
+			fclose(dest_file);
+			dest_file = fopen(dest_file_path, "wb");
+		}
+	}
+
 	if(dest_file == NULL){
 		if(errno == EEXIST && !(force)){
 			fprintf(stderr,"Target file already exist\n");
 			result = 1;
 			goto cleanup;
 		}else{
-			fprintf(stderr,"Error opening file:%s",strerror(errno));
+			fprintf(stderr,"Error opening dest file:%s\n",strerror(errno));
 			result = 1;
 			goto cleanup;
 		}
@@ -42,14 +54,16 @@ int copy(int verbos, int force, char *src_file_path, char *dest_file_path){
 	{
 		fclose(dest_file);
 	}
+	if (result == 1)
+	{
+		printf("general failure\n");
+	}
 	return result;
 }
 
 int main(int argc, char *argv[]) {
     int force = 0, verbose = 0, ret = 0;
-    FILE *src_file = NULL, *dst_file = NULL;
-    char *src_file_path, *dst_file_path;
-
+    
     // Check for the correct number of arguments
     if (argc < 3) {
         fprintf(stderr, "Usage: copy <file1> <file2> [-v] [-f]\n");
@@ -58,12 +72,12 @@ int main(int argc, char *argv[]) {
 
     // Parse optional flags
     for (int i = 3; i < argc; i++) {
-        if (strcmp(argv[i], "-v") == 0) {
+        if (strcmp(argv[i], "[-v]") == 0) {
             verbose = 1;
-        } else if (strcmp(argv[i], "-f") == 0) {
+        } else if (strcmp(argv[i], "[-f]") == 0) {
             force = 1;
         }
     }
-    int res = copy(verbose, force, argv[2], argv[3]);
-    return res;
+    ret = copy(verbose, force, argv[1], argv[2]);
+    return ret;
 }
