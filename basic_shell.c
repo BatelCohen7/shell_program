@@ -8,140 +8,93 @@
 #include <string.h>
 #include <ctype.h>
 #include <signal.h>
-
-// int main() {
-// 	int i;
-// 	char *argv[10];
-// 	char command[1024];
-// 	char *token;
-	
-// 	printf("--------------Welcome to stshell--------------\n");
-	
-// 	while (1) {
-// 	    printf("\ncommand: ");
-// 	    fgets(command, 1024, stdin);
-// 	    command[strlen(command) - 1] = '\0'; // replace \n with \0
-
-// 	    /* parse command line */
-// 	    i = 0;
-// 	    token = strtok (command," ");
-// 	    while (token != NULL)
-// 	    {
-// 		argv[i] = token;
-// 		token = strtok (NULL, " ");
-// 		i++;
-// 	    }
-// 	    argv[i] = NULL;
-
-// 	    if (argv[0] != NULL){
-
-// 		}
-// 	}
-	
-// 	pid_t pid = fork();  // create a new child process
-//     if (pid == -1) {
-//         perror("fork function filed");  // handle error condition
-//         exit(EXIT_FAILURE);
-//     }
-	
-// 	if (pid == 0) {
-//         printf("Child process: PID=%d\n", getpid());
-        
-//     } else {
-//         printf("Parent process: PID=%d, child PID=%d\n", getpid(), pid);
-//         wait(NULL);
-//     }
-// 	return 0;
-// }
-
-
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
 #include <dirent.h>
-#include <stdlib.h>
-#include <netinet/in.h> //structure for storing address information
-#include <sys/socket.h> //for socket APIs
-#include <sys/types.h>
-#include <fcntl.h>
 
 #define TRUE 1
 #define MAX_CMD_SIZE 1024
+#define MAX_ARGS_SIZE 10
 
-void myPipe(char cmd[MAX_CMD_SIZE]){
-    char *tok1;
-    char *tok2; 
-    tok2 = strtok(cmd, "|");
-    tok1 = tok2;
-    tok2 = strtok(NULL, "|");
+void handle_sigint(int sig) {
+	if(sig == 2){
+		int pid = fork();
+		if(pid == -1){
+			perror("fork function filed\n");  // handle error condition
+        	exit(EXIT_FAILURE);
+		}
+		if(pid == 0){
+			// int result = kill(getppid(), SIGSTOP);
+			// if (result == -1) {
+        	// 	perror("kill function filed\n");
+        	// 	exit(EXIT_FAILURE);
+    		// }
+			char flag;
+			while(TRUE){
+				printf("press 1 to continue!\n");
+				scanf("%c", &flag);
+				if (flag == '1'){
+					exit(EXIT_SUCCESS);
+					// int result = kill(getppid(), SIGCONT);
+					// if (result == -1){
+        			// 	perror("kill function filed\n");
+        			// 	exit(EXIT_FAILURE);
+    				// }
+				}
+			}
+		}else{
+			waitpid(pid, NULL, 0);
+		}
+	}
+	return;
+}
 
-    int fd[2];
-    if (pipe(fd) == -1){
-        return ;
-    }
-    int pid1 = fork();
-    if (pid1 < 0)
-    {
-        return ;
-    }
-    if (pid1 == 0)
-    {
-        // we stand on the left process child
-        dup2(fd[1], STDOUT_FILENO);
-        close(fd[0]);
-        close(fd[1]);
+void execute_pipe(char *commands[][MAX_ARGS_SIZE], int n) {
+    int i;
+    int pipefds[2 * (n - 1)];
 
-        char *token;
-        token = strtok(tok1, " ");
-        char *param[1024];
-        int i = 0;
-        while (token != NULL)
-        {
-            param[i++] = token;
-            token = strtok(NULL, " ");
-        }
-        param[i] = NULL;
-        printf("%s", param[0]);
-        if (execvp(param[0], param) == -1)
-        {
-            printf("error1");
-            return ;
-        }
-    }
-
-    int pid2 = fork();
-    if (pid2 < 0)
-    {
-        return ;
-    }
-    if (pid2 == 0)
-    {
-        // we stand on the right process child
-        dup2(fd[0], STDIN_FILENO);
-        close(fd[0]);
-        close(fd[1]);
-
-        char *token;
-        token = strtok(tok2, " ");
-        char *param[1024];
-        int i = 0;
-        while (token != NULL)
-        {
-            param[i++] = token;
-            token = strtok(NULL, " ");
-        }
-        param[i] = NULL;
-        if (execvp(param[0], param) == -1)
-        {
-            printf("error");
-            return ;
+    for (i = 0; i < (n - 1); i++) {
+        if (pipe(pipefds + i * 2) < 0) {
+            perror("pipe function filed\n");
+            exit(EXIT_FAILURE);
         }
     }
-    waitpid(pid1, NULL, 0);
-    waitpid(pid2, NULL, 0);
 
-    close(fd[0]);
-    close(fd[1]);
+    int pid;
+    int status;
+
+    for (i = 0; i < n; i++) {
+        pid = fork();
+        if (pid == -1) {
+            perror("fork function filed\n");
+            exit(EXIT_FAILURE);
+        } else if (pid == 0) {
+            if (i != 0) {
+                if (dup2(pipefds[(i - 1) * 2], STDIN_FILENO) < 0) {
+                    perror("dup2 function filed\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            if (i != n - 1) {
+                if (dup2(pipefds[i * 2 + 1], STDOUT_FILENO) < 0) {
+                    perror("dup2 function filed\n");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            for (int j = 0; j < 2 * (n - 1); j++) {
+                close(pipefds[j]);
+            }
+
+            if (execvp(commands[i][0], commands[i]) < 0) {
+                perror(commands[i][0]);
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+    for (int j = 0; j < 2 * (n - 1); j++) {
+        close(pipefds[j]);
+    }
+    for (int j = 0; j < n; j++) {
+        wait(&status);
+    }
 }
 
 int main(){
@@ -149,9 +102,17 @@ int main(){
 	printf("--------------Welcome to stshell--------------\n");
 
     char cmd[MAX_CMD_SIZE] = "";
-	const char *ctrl_c_str = "\x03";
 	const char *redirect_str1 = ">>";
 	const char *redirect_str2 = "<<";
+
+	struct sigaction sa;
+	sa.sa_handler = handle_sigint;
+	sa.sa_flags = 0;
+	sigemptyset(&sa.sa_mask);
+	if (sigaction(SIGINT, &sa, NULL) == -1) {
+		perror("sigaction");
+		exit(EXIT_FAILURE);
+		}
 
     while (TRUE){
 		printf("\ncommand: ");
@@ -162,39 +123,25 @@ int main(){
 			printf("\n--------------close to stshell--------------\n");
 			exit(EXIT_SUCCESS);
 		}
-		else if(strstr(cmd, ctrl_c_str) != NULL){
-			int pid = fork();
-			if(pid == -1){
-				perror("fork function filed\n");  // handle error condition
-        		exit(EXIT_FAILURE);
-			}
-			if(pid == 0){
-				int result = kill(getppid(), SIGSTOP);
-				if (result == -1) {
-        			perror("kill function filed\n");
-        			return 1;
-    			}
-				printf("to continue the program pleas press 1\n");
-				int flag;
-				while(TRUE){
-					scanf("%d", &flag);
-					if (flag == 1){
-						int result = kill(getppid(), SIGCONT);
-						if (result == -1){
-        					perror("kill function filed\n");
-        					return 1;
-    					}
-					}
-				}
-			}
-			else{
-				sleep(1);
-			}
-		}
         else if (strchr(cmd, '|') != NULL){
-            myPipe(cmd);
+    		char *commands[MAX_CMD_SIZE][MAX_ARGS_SIZE];
+    		int num_commands = 0;
+    		char *token = strtok(cmd, "|");
+    		while (token != NULL) {
+        		char *cmd_token = strtok(token, " ");
+        		int num_args = 0;
+        		while (cmd_token != NULL) {
+            		commands[num_commands][num_args] = cmd_token;
+            		cmd_token = strtok(NULL, " ");
+            		num_args++;
+        		}
+        		commands[num_commands][num_args] = NULL;
+        		num_commands++;
+        		token = strtok(NULL, "|");
+    		}
+			execute_pipe(commands, num_commands);
         }
-		else if ((strchr(cmd, '>') != NULL) || (strchr(cmd, '<') != NULL)||
+		else if ((strchr(cmd, '>') != NULL) || (strchr(cmd, '<') != NULL) ||
 				 (strstr(cmd, redirect_str1) != NULL) || (strstr(cmd, redirect_str2) != NULL)){
 
         		char *tok1; // process
@@ -217,10 +164,9 @@ int main(){
                 	tok1 = tok2;
                 	tok2 = strtok(NULL, ">");
             	}
-
             	int pid = fork();
             	if (pid == -1) {
-        			perror("fork function filed\n");  // handle error condition
+        			perror("fork function filed\n"); 
         			exit(EXIT_FAILURE);
     			}
             	if (pid == 0){
@@ -246,13 +192,12 @@ int main(){
 					}
 					argv[i] = NULL;
 
-					// test
-					printf("%s", argv[0]);
-
 					if (execvp(argv[0], argv) == -1){
 						perror("execute function filed\n");  
         				return 1;
 					}
+				}else{
+					waitpid(pid, NULL, 0);
 				}
 		}
         else{
@@ -280,5 +225,3 @@ int main(){
     }
     return 0;
 }
-
-
