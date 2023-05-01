@@ -149,9 +149,13 @@ int main(){
         		char *tok1; // process
             	char *tok2; // file
 				if (strchr(cmd, '<') != NULL){
-                	tok1 = strtok(cmd, "<");
-                	tok2 = tok1;
-                	tok1 = strtok(NULL, "<");
+                	tok2 = strtok(cmd, "<");
+                	tok1 = tok2;
+                	tok2 = strtok(NULL, "<");
+            	}else if (strchr(cmd, '>') != NULL){
+                	tok2 = strtok(cmd, '>');
+                	tok1 = tok2;
+                	tok2 = strtok(NULL, '>');
             	}else if(strstr(cmd, redirect_str2) != NULL){
 					tok2 = strtok(cmd, redirect_str2);
                 	tok1 = tok2;
@@ -161,11 +165,6 @@ int main(){
                 	tok1 = tok2;
                 	tok2 = strtok(NULL, redirect_str1);
 				}
-				else if (strchr(cmd, '>') != NULL){
-                	tok2 = strtok(cmd, ">");
-                	tok1 = tok2;
-                	tok2 = strtok(NULL, ">");
-            	}
             	int pid = fork();
             	if (pid == -1) {
         			perror("fork function filed\n"); 
@@ -177,8 +176,8 @@ int main(){
 					}
 					int file = open(tok2, O_WRONLY | O_CREAT, 0777);
 					if (file == -1){
-						printf("open file function filed\n");
-						return 2;
+						perror("open file function filed\n");
+						exit(EXIT_FAILURE);
 					}
 					dup2(file, STDOUT_FILENO);
 					close(file);
